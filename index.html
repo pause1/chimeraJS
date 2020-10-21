@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Chimera C64</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="text/javascript" src="map.js"></script>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="style.css">
+    <script src="playvideo.js"></script>
+    <script src="game.js"></script>
+    <script>
+        var escList, topAnim, documentReading, videoReady, videoReady2, gameStart, startGoing, gameGoing, drawing, gamewinIndex, changingC64, isChrome, init, Keypress, animationGoing, renderer, restarting, myAudio, curArea
+        var spreadSheet = new Array()
+        var smartphone = new Array()
+        var spreadSheetGeneric = {}
+        var spreadSheetMoving = {}
+        var chimeraPos = {}
+        var loadingScreenString = "     **** COMMODORE 64 BASIC V2 ****\n  64K RAM SYSTEM  38911 BASIC BYTES FREE\n   AVAILABLE COMMANDS: LOAD, LIST, HELP\nREADY."
+        var curText = ""
+
+        var listener = function (e) {
+            switch (e.key) {
+                case "Escape":
+                    gameStart = true; restarting = false;
+                    window.removeEventListener("keyup", listener, true)
+                    Game()
+                    break;
+                case "Esc":
+                    gameStart = true; restarting = false;
+                    window.removeEventListener("keyup", listener, true)
+                    Game()
+                    break;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function (event) {
+            var anotherField = document.getElementById("another")
+            /* anotherField.style.position = "absolute";
+            var x = parseFloat(window.getComputedStyle(anotherField).getPropertyValue('height')) / 2
+            var y = parseFloat(window.getComputedStyle(anotherField).getPropertyValue('width'))
+            anotherField.style.top = window.innerHeight / 2 - x + "px"
+            anotherField.style.left = window.innerWidth / 2 - y + "px"  */
+            anotherField.style.marginTop = window.innerHeight / 2 - 200 + "px"
+            anotherField.style.marginLeft = window.innerWidth / 2 - 320 + "px"
+            document.fonts.onloadingdone = function (fontFaceSetEvent) {
+                setTimeout(function () {
+                    var anotherField = document.getElementById("another")
+                    anotherField.innerHTML = ""
+                    anotherField.style.display = "none"
+                    var canvas = document.getElementById("chimeraGame")
+                    canvas.style.display = "block"
+                    var isChromium = window.chrome; var winNav = window.navigator; var vendorName = winNav.vendor; var isOpera = typeof window.opr !== "undefined"; var isIEedge = winNav.userAgent.indexOf("Edge") > -1; var isIOSChrome = winNav.userAgent.match("CriOS");
+                    if (isIOSChrome || isChromium !== null && typeof isChromium !== "undefined" && vendorName === "Google Inc." && isIEedge === false) init()
+                    else {
+                        var helpField = document.getElementById("help")
+                        helpField.innerHTML = "</br>Your browser is not based on Chromium engine which may or may not to be a bad egg. </br>Press button above to run game. Unexpected errors may occur when running on unsupported browser.</br>Go to <a href='https://www.opera.com/pl'>this website</a> to download Chromium based webbrowser."
+                        helpField.style.display = "block"
+                        var button = document.getElementById("playGame")
+                        button.style.display = "block"
+                        button.addEventListener("click", function () { init(); button.style.display = "none"; helpField.style.display = "none"; })
+                    };
+                }, 750);
+            };
+        });
+
+        function isOdd(num) { return num % 2; }
+
+        init = function () {
+            var types = ["computer", "bread", { "name": "radiator", "0": "radiatorA", "1": "radiatorB", "2": "radiatorC" }, "torch", { "name": "pandora", "0": "pandoraA", "1": "pandoraB" }, "door", { "name": "forcefield", "0": "forcefieldA", "1": "forcefieldB", "2": "forcefieldC" }, "water", "nut", "spanner", { "name": "hourglass", "0": "hourglassA", "1": "hourglassB" }, { "name": "toaster", "0": "toasterA", "1": "toasterB", "2": "toasterC" }, "pyramid", "padlock", "key", { "name": "player", "0": "staticA", "1": "staticB", "2": "staticC", "3": "staticD" }]
+            for (var x = 0; x < types.length; x++) {
+                if (typeof (types[x]) === 'object') {
+                    spreadSheetGeneric[types[x].name] = []
+                    for (var y = 0; y < Object.keys(types[x]).length - 1; y++) {
+                        if (types[x][y] != "name") {
+                            var el = document.createElement("img")
+                            el.src = "img/generic/" + types[x][y] + ".png"
+                            spreadSheetGeneric[types[x].name].push(el)
+                        }
+                    }
+                }
+                else {
+                    var el = document.createElement("img")
+                    el.src = "img/generic/" + types[x] + ".png"
+                    spreadSheetGeneric[types[x]] = el
+                }
+
+            }
+
+            var smart = ["smartphone0", "smartphone1", "smartphone2", "smartphone3"]
+            for (var z = 0; z < smart.length; z++) {
+                var el = document.createElement("img")
+                el.src = "img/generic/" + smart[z] + ".png"
+                smartphone.push(el)
+            }
+
+            var playerMov = ["staticA_mov", "staticB_mov", "staticC_mov", "staticD_mov"]
+            for (var z = 0; z < playerMov.length; z++) {
+                var el = document.createElement("img")
+                el.src = "img/generic/" + playerMov[z] + ".png"
+                spreadSheetMoving[z] = el
+            }
+
+            for (var h = 0; h < Object.keys(map).length; h++) {
+                spreadSheet[h] = []
+                for (var i = map[h].contains.length - 1; i >= 0; i--)
+                    for (var j = 0; j < map[h].contains[i].length; j++) {
+                        if (map[h].contains[i][j].type.indexOf("wall") >= 0) {
+                            var el = document.createElement("img")
+                            el.src = "img/tile_" + map[h].x + "_" + map[h].y + "/type" + map[h].contains[i][j].type.charAt(4) + ".png"
+                            el.posX = i; el.posY = j; el.posArea = h; spreadSheet[h].push(el);
+                        }
+                    }
+            }
+
+            var intro
+            var documentTable = ["documentA", "documentB", "documentC", "creditsD"]
+            var canvas = document.getElementById("chimeraGame");
+            canvas.style.marginTop = window.innerHeight / 2 - 400 / 2 + "px"
+            canvas.style.marginLeft = window.innerWidth / 2 - 640 / 2 + "px"
+            var ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#FF0000"; ctx.fillRect(0, 0, 640, 400);
+
+            window.addEventListener("resize", function (event) {
+                var canvas = document.getElementById("chimeraGame");
+                canvas.style.marginTop = window.innerHeight / 2 - 400 / 2 + "px"
+                canvas.style.marginLeft = window.innerWidth / 2 - 640 / 2 + "px"
+            })
+
+            c64screen()
+            var insertButton = document.getElementById("insertButton");
+            insertButton.style.display = "block"
+            insertButton.addEventListener("click", loadDrive)
+            var helpField = document.getElementById("help")
+            helpField.innerHTML = "To load game insert floppy disk first."
+            helpField.style.display = "block"
+
+            function loadDrive() {
+                var helpField = document.getElementById("help")
+                helpField.innerHTML = "Now you have to load game, firstly load all disk (LOAD \"\$\", 8), where \"8\" means floppy location. <br />After that list all games by \"LIST\" command.<br />Then select game by name (LOAD \"gamename\", 8), where \"8\" means floppy location."
+                helpField.style.display = "block"
+                insertButton.removeEventListener("click", loadDrive)
+                insertButton.style.display = "none"
+                loadingScreenString += '\n\nFOUND "CHIMERA" ON 8.\nREADY.'
+            }
+
+            function c64screen() {
+                var variable0, loaded
+
+                var functionA = function (event) {
+                    event = event || window.event;
+                    var charCode = event.keyCode
+                    if ((charCode == 32 || (charCode >= 48 && charCode <= 90) || (charCode >= 96 && charCode <= 111) || (charCode >= 186 && charCode <= 222)) && curText.length < 41) {
+                        curText += event.key
+                    }
+                    else if (event.key == "Enter" || event.key == "Ent") {
+                        if (curText == "")
+                            curText = '\n'
+                        else if (insertButton.style.display == "none" && ((curText == 'LOAD "$",8') || (curText == 'LOAD"$",8') || (curText == 'load "$",8') || (curText == 'load"$",8') || (curText == 'LOAD "$", 8') || (curText == 'LOAD"$", 8') || (curText == 'load "$", 8') || (curText == 'load"$", 8'))) {
+                            curText = '\n' + curText; curText += '\n\nLOADING.\nREADY.'; loaded = true;
+                        }
+                        else if ((curText == 'LOAD "$",8') || (curText == 'LOAD"$",8') || (curText == 'load "$",8') || (curText == 'load"$",8') || (curText == 'LOAD "$", 8') || (curText == 'LOAD"$", 8') || (curText == 'load "$", 8') || (curText == 'load"$", 8')) {
+                            curText = '\n' + curText; curText += '\n\nNOTHING FOUND AT 8.\nINSERT FLOPPY.\nREADY.';
+                        }
+                        else if (loaded && (curText == 'LIST' || curText == "list")) {
+                            curText = '\n' + curText; curText += '\n\n0 "CHIMERA BY KRZYSZTOF GARBARZ" 13 2A. \n\n1      "CHIMERA"                    PRG\n2 BLOCKS FREE.\nREADY.';
+                        }
+                        else if ((curText == 'HELP' || curText == "help")) {
+                            curText = '\n' + curText; curText += '\n\n   AVAILABLE COMMANDS: LOAD, LIST, HELP\n       TO LOAD GAME INSERT FLOPPY,\n       THEN LOAD FLOPPY,\n       THEN LIST AVAILABLE GAMES,\n       AND LOAD ONE.\nREADY.';
+                        }
+                        else if (insertButton.style.display == "none" && ((curText == 'LOAD "1",8') || (curText == 'LOAD"1",8') || (curText == 'load "1",8') || (curText == 'load"1",8') || (curText == 'LOAD "1", 8') || (curText == 'LOAD"1", 8') || (curText == 'load "1", 8') || (curText == 'load"1", 8') || (curText == 'LOAD 1,8') || (curText == 'LOAD1,8') || (curText == 'load 1,8') || (curText == 'load1,8') || (curText == 'LOAD 1, 8') || (curText == 'LOAD1, 8') || (curText == 'load 1, 8') || (curText == 'load1, 8') || (curText == 'LOAD "CHIMERA",8') || (curText == 'LOAD"CHIMERA",8') || (curText == 'load "CHIMERA",8') || (curText == 'load"CHIMERA",8') || (curText == 'LOAD "CHIMERA", 8') || (curText == 'LOAD"CHIMERA", 8') || (curText == 'load "CHIMERA", 8') || (curText == 'load"CHIMERA", 8') || (curText == 'LOAD "chimera",8') || (curText == 'LOAD"chimera",8') || (curText == 'load "chimera",8') || (curText == 'load"chimera",8') || (curText == 'LOAD "chimera", 8') || (curText == 'LOAD"chimera", 8') || (curText == 'load "chimera", 8') || (curText == 'load"chimera", 8'))) {
+                            curText = '\n' + curText; document.removeEventListener("keyup", functionA); gameIntro();
+                        }
+                        else {
+                            curText = '\n' + curText; curText += '\n\n?SYNTAX ERROR\nREADY.';
+                        }
+
+                        loadingScreenString += curText; curText = "";
+                    }
+                    else if (event.key == "Backspace")
+                        curText = curText.slice(0, -1)
+                }
+                document.addEventListener("keyup", functionA)
+
+                function screen() {
+                    var variable1 = 0
+                    var img = document.getElementById("waitScreen");
+                    ctx.drawImage(img, 0, 0); ctx.save(); ctx.fillStyle = "rgb(170,170,170)"; ctx.textAlign = "left"; ctx.font = "16px cyferki";
+
+                    if (variable0) {
+                        var lines = loadingScreenString.split('\n'); lines.push(curText);
+                        if (lines.length >= 15)
+                            for (var i = lines.length - 15; i < lines.length; i++) {
+                                ctx.fillText(lines[i], 54, 75 + (variable1 * 19)); variable1++;
+                            }
+                        else
+                            for (var i = 0; i < lines.length; i++) {
+                                if (i < 2)
+                                    ctx.fillText(lines[i], 54, 75 + (variable1 * 23));
+                                else
+                                    ctx.fillText(lines[i], 54, 75 + (variable1 * 19));
+                                variable1++
+                            }
+
+                        if (changingC64 % 20 === 0)
+                            variable0 = false
+                    }
+                    else {
+                        var lines = loadingScreenString.split('\n');
+                        lines.push(curText + "¹")
+                        if (lines.length >= 15)
+                            for (var i = lines.length - 15; i < lines.length; i++) {
+                                ctx.fillText(lines[i], 54, 75 + (variable1 * 19));
+                                variable1++
+                            }
+                        else
+                            for (var i = 0; i < lines.length; i++) {
+                                if (i < 2)
+                                    ctx.fillText(lines[i], 54, 75 + (variable1 * 23));
+                                else
+                                    ctx.fillText(lines[i], 54, 75 + (variable1 * 19));
+                                variable1++
+                            }
+                        if (changingC64 % 20 === 0)
+                            variable0 = true
+                    }
+                    ctx.restore(); changingC64 = requestAnimationFrame(screen)
+                }
+                screen()
+            }
+
+            function gameIntro() {
+                setTimeout(function () {
+                    loadingScreenString += "\nSEARCHING"
+                    setTimeout(function () {
+                        loadingScreenString += "\nFOUND CHIMERA"; loadingScreenString += "\nLOADING";
+                        setTimeout(function () {
+                            loadingScreenString += "\nREADY."
+                            setTimeout(function () {
+                                cancelAnimationFrame(changingC64)
+                                var img = document.getElementById("startScreenA");
+                                ctx.drawImage(img, 0, 0);
+                                setTimeout(function () {
+                                    var img = document.getElementById("startScreen");
+                                    ctx.drawImage(img, 0, 0);
+                                    var helpField = document.getElementById("help")
+                                    helpField.style.display = "block"
+                                    helpField.innerHTML = "Press &rang;Space&lang; to go!"
+                                    document.addEventListener("keyup", Keypress)
+                                }, 1000)
+                            }, 1000);
+                        }, 1000);
+                    }, 1000);
+                }, 1000);
+            }
+
+            function gameIntroDocuments() {
+                var img = document.getElementById(documentTable[3]);
+                ctx.drawImage(img, 0, 0);
+                var helpField = document.getElementById("help")
+                helpField.innerHTML = "Press &rang;Space&lang; to read more! \n Press &rang;Escape&lang; to load game!"
+            }
+
+            function gameIntroDocumentsChange() {
+                var img = document.getElementById(documentTable[0]);
+                ctx.drawImage(img, 0, 0);
+                var temp = documentTable[0]; documentTable.shift(); documentTable.push(temp);
+                var helpField = document.getElementById("help")
+                helpField.innerHTML = "Press &rang;Space&lang; to read more! \n Press &rang;Escape&lang; to load game!"
+            }
+
+            function gameMenu() {
+                videoReady2 = true
+                playVid("img/load.mp4", true, false)
+                var helpField = document.getElementById("help")
+                helpField.innerHTML = "..."
+                helpField.style.display = "none"
+            }
+
+            Keypress = function (e) {
+                if (!intro && !restarting) {
+                    switch (e.key) {
+                        case "Spacebar":
+                            gameIntroDocuments()
+                            break;
+                        case " ":
+                            gameIntroDocuments()
+                            break;
+                    }
+                    intro = true
+                }
+                else if (!documentReading && !restarting)
+                    switch (e.key) {
+                        case "Spacebar":
+                            gameIntroDocumentsChange()
+                            break;
+                        case " ":
+                            gameIntroDocumentsChange()
+                            break;
+                        case "Escape":
+                            gameMenu()
+                            documentReading = true
+                            break;
+                        case "Esc":
+                            gameMenu()
+                            documentReading = true
+                            break;
+                    }
+                else if (videoReady)
+                    switch (e.key) {
+                        case "Escape":
+                            Game()
+                            videoReady = false
+                            break;
+                        case "Esc":
+                            Game()
+                            videoReady = false
+                            break;
+                    }
+            }
+        }
+    </script>
+</head>
+
+<body>
+
+    <canvas id="chimeraGame" width="640" height="400" style="display: none"></canvas>
+    <button id="insertButton" style="display: none; margin: 0 auto;">&rang;Insert Chimera Disk&lang;</button>
+    <button id="playGame" style="display: none; margin: 0 auto;">&rang;Start&lang;</button>
+    <div id="help" style="display: none; margin: 0 auto; text-align: center;"></div>
+    <img id="scoresStatic" src="img/generic/scores.png" alt="Scores screen" style="display: none" />
+    <img id="startScreen" src="img/start.png" alt="Game is loading..." style="display: none" />
+    <img id="startScreenA" src="img/startA.png" alt="Game is loading..." style="display: none" />
+    <img id="waitScreen" src="img/wait.png" alt="Game is loading..." style="display: none" />
+    <img id="documentA" src="img/documentA.png" alt="Instructions..." style="display: none" />
+    <img id="documentB" src="img/documentB.png" alt="Instructions..." style="display: none" />
+    <img id="documentC" src="img/documentC.png" alt="Instructions..." style="display: none" />
+    <img id="creditsD" src="img/creditsD.png" alt="Instructions..." style="display: none" />
+    <img id="nonepng" src="img/generic/none.png" alt="none..." style="display: none" />
+    <img id="warheadpng" src="img/generic/warhead.png" alt="none..." style="display: none" />
+    <img id="chimerapng" src="img/generic/chimera.png" alt="none..." style="display: none" />
+
+    <div id="another" style="width: 640px; height: 400px; font-family: cyferki; font-size: 14px; text-align: center; ">
+        <img src="img/generic/load.gif" width="80px" height="80px" alt="..." style="display: block; width: '80px'; height: '80px'; margin: 0 auto; text-align:center; "
+        />
+        <br/> Please wait until current game is successfully loaded.
+    </div>
+
+</body>
+
+</html>
